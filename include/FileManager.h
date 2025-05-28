@@ -11,7 +11,6 @@
 bool setupSPIFFS();
 void initLogDirectory();
 void createNewLogFile();
-void createSampleTestFile();
 void logOBD2Data();
 void processLogging();
 void startLogging();
@@ -24,5 +23,5 @@ extern String currentLogFile;
 extern bool isLogging;
 extern unsigned long lastLogTime;
 extern int testCounter;
-
+extern bool testMode;
 #endif // FILE_MANAGER_H

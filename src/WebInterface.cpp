@@ -11,7 +11,10 @@ void setupWebServer() {
   server.on("/download", HTTP_GET, handleDownload);
   server.on("/delete", HTTP_DELETE, handleDelete);
   server.on("/delete-all", HTTP_DELETE, handleDeleteAll);
-
+  
+  // Test simulation routes
+  server.on("/start-test", HTTP_GET, handleStartTest);
+  server.on("/stop-test", HTTP_GET, handleStopTest);
 
   // Captive portal for other routes
   server.onNotFound(handleCaptivePortal);
@@ -21,9 +24,7 @@ void setupWebServer() {
   Serial.println("HTTP server started on port " + String(SERVER_PORT));
 }
 
-void handleClientRequests() {
-  server.handleClient();
-}
+void handleClientRequests() { server.handleClient(); }
 
 void handleRoot() {
   String html = R"rawliteral(
@@ -181,6 +182,11 @@ void handleRoot() {
   <div id="dashboard" class="tab-content active">
     <div class="status-info">
       <p><strong>Automatic Logging:</strong> <span id="loggingStatus">Ready - Waiting for car to start</span></p>
+    </div>
+    
+    <div class="control-buttons">
+      <button id="startTestButton" onclick="startTestLogging()" class="button">Start Test Simulation</button>
+      <button id="stopTestButton" onclick="stopTestLogging()" class="button" style="background-color: #f44336;">Stop Test Simulation</button>
     </div>
 
     <div class="dashboard-grid">
@@ -403,17 +409,54 @@ void handleRoot() {
     }
   }
 
+  function startTestLogging() {
+    fetch('/start-test', { method: 'GET' })
+      .then(response => {
+        if (response.ok) {
+          alert("Test simulatie gestart!");
+          document.getElementById('startTestButton').disabled = true;
+          document.getElementById('stopTestButton').disabled = false;
+        } else {
+          alert("Fout bij starten test simulatie.");
+        }
+      })
+      .catch(error => {
+        console.error('Error starting test:', error);
+        alert("Fout bij starten test simulatie.");
+      });
+  }
+
+  function stopTestLogging() {
+    fetch('/stop-test', { method: 'GET' })
+      .then(response => {
+        if (response.ok) {
+          alert("Test simulatie gestopt!");
+          document.getElementById('startTestButton').disabled = false;
+          document.getElementById('stopTestButton').disabled = true;
+        } else {
+          alert("Fout bij stoppen test simulatie.");
+        }
+      })
+      .catch(error => {
+        console.error('Error stopping test:', error);
+        alert("Fout bij stoppen test simulatie.");
+      });
+  }
+
   document.addEventListener('DOMContentLoaded', function() {
     fetchData();
     dataRefreshInterval = setInterval(fetchData, 500);
     refreshTests();
+    
+    // Initialize button states
+    document.getElementById('stopTestButton').disabled = true;
   });
 </script>
 </body>
 </html>
 )rawliteral";
 
-server.send(200, "text/html", html);
+  server.send(200, "text/html", html);
 }
 
 void handleData() {
@@ -446,8 +489,6 @@ void handleTestsList() {
 
   Serial.println("Request received for test files list");
 
-  createSampleTestFile();
-
   // Try to open logs directory first
   File root = SPIFFS.open(LOG_DIR);
   int fileCount = 0;
@@ -471,7 +512,8 @@ void handleTestsList() {
       file = root.openNextFile();
     }
   } else {
-    Serial.println("Cannot open logs directory as directory, trying alternative method");
+    Serial.println(
+        "Cannot open logs directory as directory, trying alternative method");
 
     // Alternative method - scan all files in SPIFFS
     File allFiles = SPIFFS.open("/");
@@ -480,7 +522,8 @@ void handleTestsList() {
       while (file) {
         String filePath = String(file.path());
         Serial.println("Scanning file: " + filePath);
-        if (filePath.startsWith(LOG_DIR) && filePath.endsWith(".csv") && !file.isDirectory()) {
+        if (filePath.startsWith(LOG_DIR) && filePath.endsWith(".csv") &&
+            !file.isDirectory()) {
           fileCount++;
           Serial.println("CSV file found via alternative method: " + filePath);
 
@@ -496,15 +539,6 @@ void handleTestsList() {
   }
 
   Serial.println("Total CSV files found: " + String(fileCount));
-
-  if (fileCount == 0) {
-    Serial.println("No files found, adding demo file for UI test");
-    JsonObject fileObj = files.createNestedObject();
-    fileObj["name"] = "demo_test.csv";
-    fileObj["path"] = String(LOG_DIR) + "/demo_test.csv";
-    fileObj["date"] = "2025-05-21 10:30:00";
-    fileObj["size"] = "25 KB";
-  }
 
   String jsonResponse;
   serializeJson(jsonDoc, jsonResponse);
@@ -537,12 +571,14 @@ void handleDownload() {
   // Change file extension based on format
   if (format == "log") {
     downloadName.replace(".csv", ".log");
-    server.sendHeader("Content-Disposition", "attachment; filename=" + downloadName);
+    server.sendHeader("Content-Disposition",
+                      "attachment; filename=" + downloadName);
     server.sendHeader("Content-Type", "text/plain");
     size_t sent = server.streamFile(file, "text/plain");
   } else {
     // Default to CSV format
-    server.sendHeader("Content-Disposition", "attachment; filename=" + downloadName);
+    server.sendHeader("Content-Disposition",
+                      "attachment; filename=" + downloadName);
     server.sendHeader("Content-Type", "text/csv");
     size_t sent = server.streamFile(file, "text/csv");
   }
@@ -554,54 +590,93 @@ void handleDelete() {
   String filename = server.arg("file");
 
   if (filename.isEmpty()) {
-    server.send(400, "application/json", "{\"success\":false,\"message\":\"Missing file parameter\"}");
+    server.send(400, "application/json",
+                "{\"success\":false,\"message\":\"Missing file parameter\"}");
     return;
   }
 
+  // Ensure the filename starts with / if it doesn't already
+  if (!filename.startsWith("/")) {
+    filename = "/" + filename;
+  }
+
+  Serial.println("Attempting to delete file: " + filename);
+
   if (!SPIFFS.exists(filename)) {
-    server.send(404, "application/json", "{\"success\":false,\"message\":\"File not found\"}");
+    Serial.println("File not found: " + filename);
+    server.send(404, "application/json",
+                "{\"success\":false,\"message\":\"File not found\"}");
     return;
   }
 
   if (SPIFFS.remove(filename)) {
-    server.send(200, "application/json", "{\"success\":true,\"message\":\"File deleted\"}");
+    Serial.println("Successfully deleted file: " + filename);
+    server.send(200, "application/json",
+                "{\"success\":true,\"message\":\"File deleted\"}");
   } else {
-    server.send(500, "application/json", "{\"success\":false,\"message\":\"Failed to delete file\"}");
+    Serial.println("Failed to delete file: " + filename);
+    server.send(500, "application/json",
+                "{\"success\":false,\"message\":\"Failed to delete file\"}");
   }
 }
 
 void handleDeleteAll() {
   int count = 0;
+  int attempts = 0;
 
   File root = SPIFFS.open("/");
   if (!root) {
-    server.send(500, "application/json", "{\"success\":false,\"message\":\"Cannot access file system\"}");
+    server.send(
+        500, "application/json",
+        "{\"success\":false,\"message\":\"Cannot access file system\"}");
     return;
   }
 
+  // First, collect all CSV file names
+  std::vector<String> csvFiles;
   File file = root.openNextFile();
   while (file) {
-    String fileName = String(file.name());
-    file.close();
-    
-    // Check if it's a CSV file
-    if (fileName.endsWith(".csv")) {
-      Serial.println("Found CSV file: " + fileName);
-      if (SPIFFS.remove(fileName)) {
-        count++;
-        Serial.println("Deleted: " + fileName);
-      }
+    String fileName = String(file.path());
+    if (!file.isDirectory() && fileName.endsWith(".csv")) {
+      csvFiles.push_back(fileName);
+      Serial.println("Found CSV file to delete: " + fileName);
     }
-    
     file = root.openNextFile();
   }
   root.close();
 
-  String response = "{\"success\":true,\"message\":\"" + String(count) + " files deleted\"}";
+  // Now delete all collected CSV files
+  for (const String &fileName : csvFiles) {
+    attempts++;
+    if (SPIFFS.remove(fileName)) {
+      count++;
+      Serial.println("Deleted: " + fileName);
+    } else {
+      Serial.println("Failed to delete: " + fileName);
+    }
+  }
+
+  String response = "{\"success\":true,\"message\":\"" + String(count) +
+                    " of " + String(attempts) + " files deleted\"}";
   server.send(200, "application/json", response);
 }
 
+void handleStartTest() {
+  testMode = true;
+  startLogging();
+  server.send(200, "text/plain", "Test simulation started");
+  Serial.println("Test simulatie gestart");
+}
+
+void handleStopTest() {
+  testMode = false;
+  stopLogging();
+  server.send(200, "text/plain", "Test simulation stopped");
+  Serial.println("Test simulatie gestopt");
+}
+
 void handleCaptivePortal() {
-  server.sendHeader("Location", "http://" + server.client().localIP().toString(), true);
+  server.sendHeader("Location",
+                    "http://" + server.client().localIP().toString(), true);
   server.send(302, "text/plain", "");
 }

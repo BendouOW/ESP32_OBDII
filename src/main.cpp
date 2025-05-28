@@ -39,7 +39,6 @@ void setup() {
   
   // Initialize file system and create sample files
   initLogDirectory();
-  createSampleTestFile();
   
   // Initialize web server
   setupWebServer();
