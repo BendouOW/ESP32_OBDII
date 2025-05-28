@@ -51,7 +51,25 @@ void createNewLogFile() {
   time_t now;
   struct tm timeinfo;
   time(&now);
-  localtime_r(&now, &timeinfo);
+  
+  // Check if time is properly synchronized (not Unix epoch)
+  if (now < 1000000000) { // If time is before year 2001, use current date fallback
+    // Use a default date format based on system uptime
+    unsigned long uptime = millis() / 1000;
+    unsigned long days = uptime / 86400;
+    unsigned long hours = (uptime % 86400) / 3600;
+    unsigned long minutes = (uptime % 3600) / 60;
+    
+    // Create a timestamp based on current date (you can adjust this as needed)
+    timeinfo.tm_year = 2025 - 1900; // 2025
+    timeinfo.tm_mon = 0;            // January (0-based)
+    timeinfo.tm_mday = 15;          // 15th
+    timeinfo.tm_hour = hours % 24;
+    timeinfo.tm_min = minutes % 60;
+    timeinfo.tm_sec = uptime % 60;
+  } else {
+    localtime_r(&now, &timeinfo);
+  }
 
   char timestamp[32];
   sprintf(timestamp, "%02d%02d%04d", timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900);
@@ -92,7 +110,10 @@ void createNewLogFile() {
     file.println("");
 
     // Time & Date with their own blank lines around them
-    String timeStr = String(timeinfo.tm_hour) + " : ";
+    String timeStr = "";
+    if (timeinfo.tm_hour < 10)
+      timeStr += "0";
+    timeStr += String(timeinfo.tm_hour) + " : ";
     if (timeinfo.tm_min < 10)
       timeStr += "0";
     timeStr += String(timeinfo.tm_min);
@@ -172,9 +193,9 @@ void logOBD2Data() {
       float testThrottle = 10 + (sin(baseTime * 0.6) * 40);
 
       // Write test data in same CSV format - all fields up to IBS voltage
-      file.print(String(timestamp, 2));                          // Time stamp
-      file.print("\t1");                                         // DNA position  
-      file.print("\t0");                                         // Accelerator position
+      file.print(String(timestamp, 2));                           // Time stamp
+      file.print("\t1");                                          // DNA position  
+      file.print("\t" + String(testThrottle, 1));                // Accelerator position
       file.print("\t" + String(testThrottle, 1));                // Throttle position
       file.print("\t0");                                         // Steering wheel position
       file.print("\t0");                                         // Brake pressure
@@ -348,20 +369,33 @@ String extractDateTime(String filename) {
     }
   }
 
-  // Fallback: return today's date
+  // Fallback: return current date/time or default if time not synced
   time_t now;
   struct tm timeinfo;
   time(&now);
-  localtime_r(&now, &timeinfo);
+  
+  if (now < 1000000000) { // Time not synced yet
+    // Use system uptime to create a reasonable timestamp
+    unsigned long uptime = millis() / 1000;
+    unsigned long hours = (uptime / 3600) % 24;
+    unsigned long minutes = (uptime % 3600) / 60;
+    unsigned long seconds = uptime % 60;
+    
+    return "2025-01-15 " + String(hours < 10 ? "0" : "") + String(hours) + ":" + 
+           String(minutes < 10 ? "0" : "") + String(minutes) + ":" + 
+           String(seconds < 10 ? "0" : "") + String(seconds);
+  } else {
+    localtime_r(&now, &timeinfo);
+    
+    char todayDate[20];
+    sprintf(todayDate, "%04d-%02d-%02d %02d:%02d:%02d", 
+            timeinfo.tm_year + 1900,
+            timeinfo.tm_mon + 1, 
+            timeinfo.tm_mday,
+            timeinfo.tm_hour,
+            timeinfo.tm_min,
+            timeinfo.tm_sec);
 
-  char todayDate[20];
-  sprintf(todayDate, "%04d-%02d-%02d %02d:%02d:%02d", 
-          timeinfo.tm_year + 1900,
-          timeinfo.tm_mon + 1, 
-          timeinfo.tm_mday,
-          timeinfo.tm_hour,
-          timeinfo.tm_min,
-          timeinfo.tm_sec);
-
-  return String(todayDate);
+    return String(todayDate);
+  }
 }
