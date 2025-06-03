@@ -200,7 +200,7 @@ void logOBD2Data() {
 
       // Write test data in same CSV format - all fields up to IBS voltage
       file.print(String(timestamp, 2));                           // Time stamp
-      file.print("\t1");                                          // DNA position  
+      file.print("\tN");                                          // DNA position  
       file.print("\t" + String(testThrottle, 1));                // Accelerator position
       file.print("\t" + String(testThrottle, 1));                // Throttle position
       file.print("\t0");                                         // Steering wheel position
