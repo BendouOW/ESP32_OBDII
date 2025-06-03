@@ -63,8 +63,8 @@ void createNewLogFile() {
 
     // Use today's date as fallback (adjust as needed for your timezone)
     timeinfo.tm_year = 2025 - 1900; // 2025
-    timeinfo.tm_mon = 0;            // January (0-based)
-    timeinfo.tm_mday = 15;          // 15th
+    timeinfo.tm_mon = 5;            // January (0-based)
+    timeinfo.tm_mday = 03;          
     timeinfo.tm_hour = hours;
     timeinfo.tm_min = minutes;
     timeinfo.tm_sec = uptime % 60;
@@ -136,7 +136,7 @@ void createNewLogFile() {
     file.println("Date: " + dateStr);
     file.println("");
 
-    // Column headers as TAB-separated row
+    // Column headers
     file.println("Time stamp\tDNA position\tAccelerator position\tThrottle "
                  "position\tSteering wheel position\t"
                  "Brake pressure\tSelected gear\tSpeed\tAtmospheric "
@@ -156,7 +156,7 @@ void createNewLogFile() {
                  "PCM 2\tPCM 2\tPCM 2\tPCM 2\tPCM 2\tPCM 2"
                  "\tPCM 2\tPCM 2\tPCM 2\tPCM 2");
 
-    // Units row as TAB-separated row
+    // Units row
     file.println("sec\t#\t%\t%\tº\t%\t#"
                  "\tKMH\tmbar\tmbar\tmbar\tmbar\tmbar\tmbar\tº\tºC\t%"
                  "\tºC\tºC\tºC\tºC\tºC\t"
