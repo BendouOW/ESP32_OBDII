@@ -76,7 +76,7 @@ void processCAN(CAN_frame_t &frame) {
           case 0x5C: // Oil temperature
             obd2Data.oilTemp = frame.data.u8[3] - 40;
             break;
-          case 0x70: // Turbo pressure (custom PID)
+          case 0x70: // Turbo pressure
             obd2Data.turboPressure = ((frame.data.u8[3] * 256) + frame.data.u8[4]) / 1000.0;
             break;
         }
