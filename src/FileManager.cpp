@@ -53,26 +53,32 @@ void createNewLogFile() {
   time(&now);
   
   // Check if time is properly synchronized (not Unix epoch)
-  if (now < 1000000000) { // If time is before year 2001, use current date fallback
-    // Use a default date format based on system uptime
+  if (now <
+      1000000000) { // If time is before year 2001, use current date fallback
+    Serial.println("Warning: Time not synchronized, using fallback date");
+    // Use current time based on millis() for filename
     unsigned long uptime = millis() / 1000;
-    unsigned long days = uptime / 86400;
-    unsigned long hours = (uptime % 86400) / 3600;
+    unsigned long hours = (uptime / 3600) % 24;
     unsigned long minutes = (uptime % 3600) / 60;
-    
-    // Create a timestamp based on current date (you can adjust this as needed)
+
+    // Use today's date as fallback (adjust as needed for your timezone)
     timeinfo.tm_year = 2025 - 1900; // 2025
     timeinfo.tm_mon = 0;            // January (0-based)
     timeinfo.tm_mday = 15;          // 15th
-    timeinfo.tm_hour = hours % 24;
-    timeinfo.tm_min = minutes % 60;
+    timeinfo.tm_hour = hours;
+    timeinfo.tm_min = minutes;
     timeinfo.tm_sec = uptime % 60;
   } else {
     localtime_r(&now, &timeinfo);
+    Serial.printf("Using synchronized time: %04d-%02d-%02d %02d:%02d:%02d\n",
+                  timeinfo.tm_year + 1900, timeinfo.tm_mon + 1,
+                  timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min,
+                  timeinfo.tm_sec);
   }
 
   char timestamp[32];
-  sprintf(timestamp, "%02d%02d%04d", timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900);
+  sprintf(timestamp, "%02d%02d%04d", timeinfo.tm_mday, timeinfo.tm_mon + 1,
+          timeinfo.tm_year + 1900);
 
   testCounter++;
 
@@ -369,32 +375,30 @@ String extractDateTime(String filename) {
     }
   }
 
-  // Fallback: return current date/time or default if time not synced
+  // Fallback: return today's date
   time_t now;
   struct tm timeinfo;
   time(&now);
-  
+
   if (now < 1000000000) { // Time not synced yet
+    Serial.println("Warning: Time not synchronized in extractDateTime");
     // Use system uptime to create a reasonable timestamp
     unsigned long uptime = millis() / 1000;
     unsigned long hours = (uptime / 3600) % 24;
     unsigned long minutes = (uptime % 3600) / 60;
     unsigned long seconds = uptime % 60;
-    
-    return "2025-01-15 " + String(hours < 10 ? "0" : "") + String(hours) + ":" + 
-           String(minutes < 10 ? "0" : "") + String(minutes) + ":" + 
+
+    // Use current date (adjust for your timezone)
+    return "2025-01-15 " + String(hours < 10 ? "0" : "") + String(hours) + ":" +
+           String(minutes < 10 ? "0" : "") + String(minutes) + ":" +
            String(seconds < 10 ? "0" : "") + String(seconds);
   } else {
     localtime_r(&now, &timeinfo);
-    
+
     char todayDate[20];
-    sprintf(todayDate, "%04d-%02d-%02d %02d:%02d:%02d", 
-            timeinfo.tm_year + 1900,
-            timeinfo.tm_mon + 1, 
-            timeinfo.tm_mday,
-            timeinfo.tm_hour,
-            timeinfo.tm_min,
-            timeinfo.tm_sec);
+    sprintf(todayDate, "%04d-%02d-%02d %02d:%02d:%02d", timeinfo.tm_year + 1900,
+            timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour,
+            timeinfo.tm_min, timeinfo.tm_sec);
 
     return String(todayDate);
   }
