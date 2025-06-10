@@ -11,10 +11,6 @@ void setupWebServer() {
   server.on("/download", HTTP_GET, handleDownload);
   server.on("/delete", HTTP_DELETE, handleDelete);
   server.on("/delete-all", HTTP_DELETE, handleDeleteAll);
-  
-  // Test simulation routes
-  server.on("/start-test", HTTP_GET, handleStartTest);
-  server.on("/stop-test", HTTP_GET, handleStopTest);
 
   // Captive portal for other routes
   server.onNotFound(handleCaptivePortal);
@@ -164,6 +160,10 @@ void handleRoot() {
 
 <div class="status-bar">
   <div class="status-item">
+    <span class="label">Current Time:</span>
+    <span id="currentTime" class="status-value">Loading...</span>
+  </div>
+  <div class="status-item">
     <span class="label">Auto:</span>
     <span id="autoStatus" class="status-value status-disconnected">UIT</span>
   </div>
@@ -181,12 +181,7 @@ void handleRoot() {
 <div class="content">
   <div id="dashboard" class="tab-content active">
     <div class="status-info">
-      <p><strong>Automatic Logging:</strong> <span id="loggingStatus">Ready - Waiting for car to start</span></p>
-    </div>
-    
-    <div class="control-buttons">
-      <button id="startTestButton" onclick="startTestLogging()" class="button">Start Test Simulation</button>
-      <button id="stopTestButton" onclick="stopTestLogging()" class="button" style="background-color: #f44336;">Stop Test Simulation</button>
+      <p><strong>Automatic Logging:</strong> <span id="loggingStatusText">Ready - Waiting for car to start</span></p>
     </div>
 
     <div class="dashboard-grid">
@@ -262,21 +257,21 @@ void handleRoot() {
     console.log("Ontvangen data:", data);
     lastData = data;
 
-    document.getElementById('autoStatus').textContent = data.autoOn ? 'AAN' : 'UIT';
+    document.getElementById('autoStatus').textContent = data.autoOn ? 'ON' : 'OFF';
     document.getElementById('autoStatus').className = 'status-value ' + (data.autoOn ? 'status-connected' : 'status-disconnected');
 
-    document.getElementById('loggingStatus').textContent = data.logging ? 'Actief' : 'Inactief';
+    document.getElementById('loggingStatus').textContent = data.logging ? 'Active' : 'Inactive';
     document.getElementById('loggingStatus').className = 'status-value ' + (data.logging ? 'status-connected' : 'status-disconnected');
 
-    document.getElementById('startButton').disabled = data.logging;
-    document.getElementById('stopButton').disabled = !data.logging;
+    document.getElementById('currentTime').textContent = data.currentTime; // Update the current time
 
-    document.getElementById('speedValue').textContent = data.speed || 0;
-    document.getElementById('rpmValue').textContent = data.rpm || 0;
-    document.getElementById('tempValue').textContent = data.coolantTemp ? data.coolantTemp.toFixed(1) : 0;
-    document.getElementById('loadValue').textContent = data.engineLoad ? data.engineLoad.toFixed(1) : 0;
-    document.getElementById('throttleValue').textContent = data.throttle ? data.throttle.toFixed(1) : 0;
-    document.getElementById('turboValue').textContent = data.turboPress ? data.turboPress.toFixed(2) : 0;
+    // Update dashboard values with proper formatting
+    document.getElementById('speedValue').textContent = Math.round(data.speed || 0);
+    document.getElementById('rpmValue').textContent = Math.round(data.rpm || 0);
+    document.getElementById('tempValue').textContent = data.coolantTemp ? data.coolantTemp.toFixed(1) : '0.0';
+    document.getElementById('loadValue').textContent = data.engineLoad ? data.engineLoad.toFixed(1) : '0.0';
+    document.getElementById('throttleValue').textContent = data.throttle ? data.throttle.toFixed(1) : '0.0';
+    document.getElementById('turboValue').textContent = data.turboPress ? data.turboPress.toFixed(2) : '0.00';
   }
 
   function fetchData() {
@@ -359,7 +354,7 @@ void handleRoot() {
           const row = document.createElement('tr');
           const cell = document.createElement('td');
           cell.colSpan = 4;
-          cell.textContent = 'Geen testbestanden gevonden';
+          cell.textContent = 'No files found';
           cell.style.textAlign = 'center';
           cell.style.padding = '15px';
           cell.style.border = '1px solid #ddd';
@@ -373,7 +368,7 @@ void handleRoot() {
   }
 
   function deleteFile(path) {
-    if (confirm('Weet je zeker dat je dit bestand wilt verwijderen?')) {
+    if (confirm('Are you sure you wanna Delete this file? This cannot be undone!')) {
       fetch(`/delete?file=${path}`, { method: 'DELETE' })
         .then(response => response.json())
         .then(data => {
@@ -391,7 +386,7 @@ void handleRoot() {
   }
 
   function deleteAllFiles() {
-    if (confirm('Weet je zeker dat je ALLE logbestanden wilt verwijderen? Dit kan niet ongedaan worden gemaakt!')) {
+    if (confirm('Are you sure you wanna Delete ALL files? This cannot be undone!')) {
       fetch('/delete-all', { method: 'DELETE' })
         .then(response => response.json())
         .then(data => {
@@ -409,45 +404,11 @@ void handleRoot() {
     }
   }
 
-  function startTestLogging() {
-    fetch('/start-test', { method: 'GET' })
-      .then(response => {
-        if (response.ok) {
-          alert("Test simulatie gestart!");
-          document.getElementById('startTestButton').disabled = true;
-          document.getElementById('stopTestButton').disabled = false;
-        } else {
-          alert("Fout bij starten test simulatie.");
-        }
-      })
-      .catch(error => {
-        console.error('Error starting test:', error);
-        alert("Fout bij starten test simulatie.");
-      });
-  }
-
-  function stopTestLogging() {
-    fetch('/stop-test', { method: 'GET' })
-      .then(response => {
-        if (response.ok) {
-          alert("Test simulatie gestopt!");
-          document.getElementById('startTestButton').disabled = false;
-          document.getElementById('stopTestButton').disabled = true;
-        } else {
-          alert("Fout bij stoppen test simulatie.");
-        }
-      })
-      .catch(error => {
-        console.error('Error stopping test:', error);
-        alert("Fout bij stoppen test simulatie.");
-      });
-  }
-
   document.addEventListener('DOMContentLoaded', function() {
     fetchData();
-    dataRefreshInterval = setInterval(fetchData, 500);
+    dataRefreshInterval = setInterval(fetchData, 200); // Faster refresh for smoother animation
     refreshTests();
-    
+
     // Initialize button states
     document.getElementById('stopTestButton').disabled = true;
   });
@@ -461,25 +422,61 @@ void handleRoot() {
 
 void handleData() {
   DynamicJsonDocument jsonDoc(1024);
-
+  
   extern bool autoIsOn;
+  extern bool testMode;
 
   jsonDoc["autoOn"] = autoIsOn;
   jsonDoc["logging"] = isLogging;
-  jsonDoc["speed"] = obd2Data.vehicleSpeed;
-  jsonDoc["rpm"] = obd2Data.engineRPM;
-  jsonDoc["coolantTemp"] = obd2Data.coolantTemp;
-  jsonDoc["engineLoad"] = obd2Data.engineLoad;
-  jsonDoc["throttle"] = obd2Data.throttlePosition;
-  jsonDoc["fuelLevel"] = obd2Data.fuelLevel;
-  jsonDoc["intakeTemp"] = obd2Data.intakeTemp;
-  jsonDoc["oilTemp"] = obd2Data.oilTemp;
-  jsonDoc["turboPress"] = obd2Data.turboPressure;
-  jsonDoc["transTemp"] = obd2Data.transmissionTemp;
+  // Delete this line if you want to disable test mode
+  jsonDoc["testMode"] = testMode;
+
+  if (testMode) {
+    float timestamp = millis() / 1000.0;
+    float baseTime = timestamp;
+
+    // Start from 0 km/h and gradually increase speed
+    float testSpeed = 30 + (sin(baseTime * 0.3) * 40);
+    float testRPM = 1000 + (sin(baseTime * 0.5) * 2000) + 1500;
+    float testLoad = 20 + (sin(baseTime * 0.4) * 30);
+    float testTemp = 90 + (sin(baseTime * 0.1) * 10);
+    float testThrottle = 10 + (sin(baseTime * 0.6) * 40);
+    float testTurboPress = 0.8 + (sin(baseTime * 0.7) * 0.6);
+
+    jsonDoc["speed"] = (int)testSpeed;
+    jsonDoc["rpm"] = (int)testRPM;
+    jsonDoc["coolantTemp"] = testTemp;
+    jsonDoc["engineLoad"] = testLoad;
+    jsonDoc["throttle"] = testThrottle;
+    jsonDoc["fuelLevel"] = 75.2; // Static for test
+    jsonDoc["intakeTemp"] = 25 + sin(baseTime * 0.2) * 5;
+    jsonDoc["oilTemp"] = 95 + sin(baseTime * 0.15) * 10;
+    jsonDoc["turboPress"] = testTurboPress;
+    jsonDoc["transTemp"] = 85 + sin(baseTime * 0.12) * 5;
+  } // delete this else block if you want to disable test mode
+  else {
+    // Use real OBD2 data
+    jsonDoc["speed"] = obd2Data.vehicleSpeed;            // Get current vehicle speed
+    jsonDoc["rpm"] = obd2Data.engineRPM;                // Get current RPM
+    jsonDoc["coolantTemp"] = obd2Data.coolantTemp;      // Get current coolant temperature
+    jsonDoc["engineLoad"] = obd2Data.engineLoad;        // Get current engine load
+    jsonDoc["throttle"] = obd2Data.throttlePosition;    // Get current throttle position
+    jsonDoc["fuelLevel"] = obd2Data.fuelLevel;          // Get current fuel level
+    jsonDoc["intakeTemp"] = obd2Data.intakeTemp;        // Get current intake temperature
+    jsonDoc["oilTemp"] = obd2Data.oilTemp;              // Get current oil temperature
+    jsonDoc["turboPress"] = obd2Data.turboPressure;     // Get current turbo pressure
+    jsonDoc["transTemp"] = obd2Data.transmissionTemp;   // Get current transmission temperature
+}
+
+ // Get the current time and format it
+  time_t now = time(nullptr);
+  struct tm *timeinfo = localtime(&now);
+  char buffer[20]; // Buffer for formatted time
+  strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
+  jsonDoc["currentTime"] = buffer; // Add formatted current time to the JSON response
 
   String jsonResponse;
   serializeJson(jsonDoc, jsonResponse);
-
   server.send(200, "application/json", jsonResponse);
 }
 
@@ -659,20 +656,6 @@ void handleDeleteAll() {
   String response = "{\"success\":true,\"message\":\"" + String(count) +
                     " of " + String(attempts) + " files deleted\"}";
   server.send(200, "application/json", response);
-}
-
-void handleStartTest() {
-  testMode = true;
-  startLogging();
-  server.send(200, "text/plain", "Test simulation started");
-  Serial.println("Test simulatie gestart");
-}
-
-void handleStopTest() {
-  testMode = false;
-  stopLogging();
-  server.send(200, "text/plain", "Test simulation stopped");
-  Serial.println("Test simulatie gestopt");
 }
 
 void handleCaptivePortal() {

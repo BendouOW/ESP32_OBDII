@@ -34,22 +34,19 @@ void setup() {
   // Initialize CAN bus
   setupCAN();
 
-  // Initialize time with timezone (example: GMT+1 for Europe/Amsterdam)
-  // Adjust the first parameter for your timezone: 
-  // GMT+1 = 3600, GMT+2 = 7200, GMT-5 = -18000, etc.
-  configTime(3600, 0, "pool.ntp.org", "time.nist.gov");
-
-  // Wait for time synchronization
-  Serial.print("Waiting for time sync");
-  for (int i = 0; i < 20; i++) {
-    time_t now = time(nullptr);
-    if (now > 1000000000) { // Check if time is reasonable (after year 2001)
-      break;
+    // Initialize time with timezone
+    configTime(3600, 0, "pool.ntp.org", "time.nist.gov");
+    // Wait for time synchronization
+    Serial.print("Waiting for time sync...");
+    for (int i = 0; i < 20; i++) {
+        time_t now = time(nullptr);
+        if (now > 1000000000) { // Check if time is reasonable
+            break;
+        }
+        Serial.print(".");
+        delay(500);
     }
-    Serial.print(".");
-    delay(500);
-  }
-  Serial.println();
+    Serial.println("\nTime synchronized.");
 
   // Print current time for verification
   time_t now = time(nullptr);

@@ -17,8 +17,6 @@ void handleTestsList();
 void handleDownload();
 void handleDelete();
 void handleDeleteAll();
-void handleStartTest();
-void handleStopTest();
 
 void handleCaptivePortal();
 
